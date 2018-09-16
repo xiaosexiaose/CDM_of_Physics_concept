@@ -1,0 +1,454 @@
+---
+title: "CDM OF ElectronicStratic"
+author: "Mi Shuaishuai"
+date: "2018年9月2日"
+output: html_document
+---
+# Packages Load
+
+```{r include=TRUE,warning=FALSE}
+library(lattice)
+library(grid)
+library(plyr)
+library(Matrix)
+library(readxl)
+library(CDM)
+library(ggplot2)
+library(Rmisc)
+library(arules)
+library(arulesViz)
+library(ggraph)
+library(cluster)
+library(graphics)
+library(gridExtra)
+library(tidyr)
+library(rpart)
+library(rpart.plot)
+# Data_read_QMatrix and Sdudent Data
+```
+```{r include=TRUE,warning=FALSE}
+Q1 <- read_excel("D:/ELETRICITY_DATA/FINAL DATA/Q1.xlsx")
+Q2 <- read_excel("D:/ELETRICITY_DATA/FINAL DATA/Q2.xlsx")
+student_Data1 <- read_excel("D:/ELETRICITY_DATA/FINAL DATA/studentData_1.xlsx")
+student_Data2 <- read_excel("D:/ELETRICITY_DATA/FINAL DATA/studentData_2.xlsx")
+head(Q1)
+head(Q2)
+head(student_Data1)
+head(student_Data2)
+```
+# Data First Treatment
+```{r}
+Q1<-Q1[,-1]
+Q1 <- as.matrix(Q1)
+Q2<-Q2[,-1]
+Q2 <- as.matrix(Q2)
+student_Data1<-student_Data1[,-1]
+student_Data1 <- as.matrix(student_Data1)
+student_Data2<-student_Data2[,-1]
+student_Data2 <- as.matrix(student_Data2)
+head(Q1)
+head(Q2)
+head(student_Data1)
+head(student_Data2)
+```
+# Matching DINA Model
+```{r}
+Attributes <- din(data = student_Data1,q.matrix = Q1,rule = "DINA")
+C_construct <- din(data = student_Data2,q.matrix = Q2,rule = "DINA")
+summary(Attributes)
+summary(C_construct)
+```
+# ModelFit
+```{r}
+SRMSR_Attributes<-modelfit.cor.din(Attributes)
+SRMSR_C_Constructs <- modelfit.cor.din(C_construct)
+summary(SRMSR_Attributes)
+summary(SRMSR_C_Constructs)
+```
+# Project quality analysis and Figure
+```{r fig.align='center'}
+#1-10项目参数
+Attribute_Guess_Parameter<-Attributes$guess$est
+Attribute_Slip_Parameter<-Attributes$slip$est
+Attribute_Item_IDI<-Attributes$IDI
+Attribute_Item_Difficulty_Parameter<-as.vector((Attribute_Guess_Parameter-Attribute_Slip_Parameter+1)/2)
+Attribute_Item_Parameter<-data.frame(Attribute_Guess_Parameter,Attribute_Slip_Parameter,Attribute_Item_IDI,Attribute_Item_Difficulty_Parameter)
+head(Attribute_Item_Parameter)
+#11-20项目参数
+C_Construct_Guess_Parameter<-C_construct$guess$est
+C_Construct_Slip_Parameter<-C_construct$slip$est
+C_Construct_Item_IDI<-C_construct$IDI
+C_Construct_Item_Difficulty_Parameter<-as.vector((C_Construct_Guess_Parameter-C_Construct_Slip_Parameter+1)/2)
+C_Construct_Item_Parameter<-data.frame(C_Construct_Guess_Parameter,C_Construct_Slip_Parameter,C_Construct_Item_IDI,C_Construct_Item_Difficulty_Parameter)
+head(C_Construct_Item_Parameter)
+#为属性和C结构进行行与列的重命名以便进行合并
+dimnames(Attribute_Item_Parameter)=list(1:10,c("Guess","Slip","IDI","Item_Difficulty"))
+head(Attribute_Item_Parameter)
+dimnames(C_Construct_Item_Parameter)=list(11:20,c("Guess","Slip","IDI","Item_Difficulty"))
+head(C_Construct_Item_Parameter)
+#将两个数据进行合并
+All_Item_Parameter<-rbind(Attribute_Item_Parameter,C_Construct_Item_Parameter)
+head(All_Item_Parameter)
+
+Item_Sequence<-c(1:20)
+All_Item_Parameter<-cbind(Item_Sequence,All_Item_Parameter)
+head(All_Item_Parameter)
+#作出堆积条形图
+Item_Guess<-ggplot(data = All_Item_Parameter,aes(x=All_Item_Parameter$Item_Sequence,y=All_Item_Parameter$Guess))+geom_col()+ylim(0:1)+xlab("Item")+ylab("Guess")+theme_classic()
+Item_Slip<-ggplot(data = All_Item_Parameter,aes(x=All_Item_Parameter$Item_Sequence,y=All_Item_Parameter$Slip))+geom_col()+ylim(0:1)+xlab("Item")+ylab("Slip")+theme_classic()
+Item_IDI<-ggplot(data = All_Item_Parameter,aes(x=All_Item_Parameter$Item_Sequence,y=All_Item_Parameter$IDI))+geom_col()+ylim(0:1)+xlab("Item")+ylab("IDI")+theme_classic()
+Item_Difficulty<-ggplot(data = All_Item_Parameter,aes(x=All_Item_Parameter$Item_Sequence,y=All_Item_Parameter$Item_Difficulty))+geom_col()+ylim(0:1)+xlab("Item")+ylab("degree of difficulty")+theme_classic()
+
+All_Item_Picture<-list(Item_Guess,Item_Slip,Item_IDI,Item_Difficulty)
+ParameterFig<-multiplot(plotlist = All_Item_Picture,cols = 2)
+```
+# Prob
+```{r}
+Attribute_Probility<-Attributes$skill.patt
+head(Attribute_Probility)
+C_Construts_Probility<-C_construct$skill.patt
+head(C_Construts_Probility)
+```
+# All Student Class of Attributes and C_Constructs
+```{r include=TRUE,warning=FALSE,fig.align='center'}
+Attribute_Class_Probility<-Attributes$attribute.patt
+head(Attribute_Class_Probility)
+C_Construct_Class_Probility<-C_construct$attribute.patt
+head(C_Construct_Class_Probility)
+#数据筛选，比例大于0.01的学生
+Attribute_Class_Probility<-Attribute_Class_Probility[Attribute_Class_Probility$class.prob>0.01,]
+C_Constructs_Class_Probility<-C_Construct_Class_Probility[C_Construct_Class_Probility$class.prob>0.01,]
+head(C_Constructs_Class_Probility)
+#条形图对比
+Attribute_Class_Fig<-ggplot(data = Attribute_Class_Probility,aes(x=rownames(Attribute_Class_Probility),y=Attribute_Class_Probility$class.prob))+geom_col()+xlab("属性分类")+ylab("分类占比")+coord_flip()+theme_bw()
+C_Constructs_Class_Fig<-ggplot(data = C_Construct_Class_Probility,aes(x=rownames(C_Construct_Class_Probility),y=C_Construct_Class_Probility$class.prob))+geom_col()+xlab("C结构及D结构分类")+ylab("分类占比")+coord_flip()+theme_bw()
+Attribute_and_C_Constructs<-list(Attribute_Class_Fig,C_Constructs_Class_Fig)
+multiplot(plotlist = Attribute_and_C_Constructs,cols = 2)
+```
+# Conceptual Structure of All Student Data Capture
+```{r include=TRUE,fig.align='center',warning=TRUE}
+# Attribute Data Capture
+Attribute_Grasp_Data<-Attributes$subj.pattern
+Attribute_Grasp_Data_ClassVector<-data.frame("Charge"="","Elementary Charge"="","Law of Conservation of Charge"="","Coulomb's Law"="","Electric Field Strength"="","Electric Field"="","Capacitance"="","Potential"="","Potential Energy"="","Difference of Potential"="",stringsAsFactors = FALSE)
+for (AttributeClass in Attribute_Grasp_Data$pattern) {
+  AttributeClass<-as.character(AttributeClass)
+  AttributeClassVector<-strsplit(AttributeClass,split = "")
+  AttributeClassVector<-unlist(AttributeClassVector)
+  Attribute_Grasp_Data_ClassVector<-rbind(Attribute_Grasp_Data_ClassVector,AttributeClassVector)
+}
+Attribute_Grasp_Data_ClassVector<-cbind("Student ID"=1:1162,Attribute_Grasp_Data_ClassVector[-1,])
+head(Attribute_Grasp_Data_ClassVector)
+# C Constructs Data Capture
+C_Construct_Grasp_Data<-C_construct$subj.pattern
+C_Construct_Grasp_Data_ClassVector<-data.frame("Charge and it's Properties"="","Electric Field and its Properties"="","Work of Static Electricity"="","Coulomb's Law"="","Capacitance"="",stringsAsFactors = FALSE)
+for (C_ConstructClass in C_Construct_Grasp_Data$pattern) {
+  C_ConstructClass<-as.character(C_ConstructClass)
+  C_ConstructClassVector<-strsplit(C_ConstructClass,split = "")
+  C_ConstructClassVector<-unlist(C_ConstructClassVector)
+  C_Construct_Grasp_Data_ClassVector<-rbind(C_Construct_Grasp_Data_ClassVector,C_ConstructClassVector)
+}
+C_Construct_Grasp_Data_ClassVector<-cbind("Student ID"=1:1162,C_Construct_Grasp_Data_ClassVector[-1,])
+head(C_Construct_Grasp_Data_ClassVector)
+```
+# Association Rules Mining
+关联规则学习，查看网站https://www.cnblogs.com/Bfrican/p/4428793.html
+affinity亲和度
+
+```{r include=TRUE,warning=TRUE,fig.align='center'}
+names(C_Construct_Grasp_Data_ClassVector)[5:6]<-c("D-Coulomb's Law","D-Capacitance")
+Attribute_and_C_Constructs_Data<-cbind(Attribute_Grasp_Data_ClassVector[,-1],C_Construct_Grasp_Data_ClassVector[,-1])
+head(Attribute_and_C_Constructs_Data)
+for (s in 1:ncol(Attribute_and_C_Constructs_Data)) {
+  Attribute_and_C_Constructs_Data[,s]<-as.factor(Attribute_and_C_Constructs_Data[,s])
+}
+colnames(Attribute_and_C_Constructs_Data)
+
+Attribute_and_C_Constructs_Rules<-apriori(data = Attribute_and_C_Constructs_Data,parameter = list(support=0.7,confidence=0.7,target="rules",minlen=2))
+plot(Attribute_and_C_Constructs_Rules,method = "graph")
+
+# View(Attribute_and_C_Constructs_Data)
+
+ziji1_charge_property_charge_element_charge_and_conservation<-Attribute_and_C_Constructs_Data[,c(1,2,3,11)]
+ziji1_charge_property_charge_element_charge_and_conservation_Rules<-apriori(data = ziji1_charge_property_charge_element_charge_and_conservation,parameter = list(support=0.6,confidence=0.6,target="rules",minlen=2))
+inspect(ziji1_charge_property_charge_element_charge_and_conservation_Rules)
+plot(ziji1_charge_property_charge_element_charge_and_conservation_Rules,method = "graph",main="电荷及其性质C1")
+
+
+ziji2_energy_charge_diffrence_work<-Attribute_and_C_Constructs_Data[,c(8,9,10,13)]
+ziji2_energy_charge_diffrence_work_Rules<-apriori(data = ziji2_energy_charge_diffrence_work,parameter = list(support=0.6,confidence=0.6,target="rules",minlen=2))
+inspect(ziji2_energy_charge_diffrence_work_Rules)
+plot(ziji2_energy_charge_diffrence_work_Rules,method = "graph",main="静电力做功C2")
+
+
+ziji3_Filed_property_strenthen<-Attribute_and_C_Constructs_Data[,c(5,6,12)]
+ziji3_Filed_property_strenthen_Rules<-apriori(data = ziji3_Filed_property_strenthen,
+parameter = list(support=0.6,confidence=0.6,target="rules",minlen=2))
+inspect(ziji3_Filed_property_strenthen_Rules)
+plot(ziji3_Filed_property_strenthen_Rules,method="graph",main="电场及其性质C3")
+
+
+ziji4_capcity<-Attribute_and_C_Constructs_Data[,c(7,15)]
+ziji4_capcity_rules<-apriori(data = ziji4_capcity,parameter = list(support=0.35,confidence=0.35,target="rules",minlen=2))
+inspect(ziji4_capcity_rules)
+plot(ziji4_capcity_rules,method="graph",main="电容a-电容D1")
+
+ziji5_clomb_law<-Attribute_and_C_Constructs_Data[,c(4,14)]
+ziji5_clomb_law_rules<-apriori(data = ziji5_clomb_law,parameter = list(support=0.3,confidence=0.3,target="rules",minlen=2))
+inspect(ziji5_clomb_law_rules)
+plot(ziji5_clomb_law_rules,method="graph",main="库仑定律a-库仑定律D2")
+
+ziji6_Attributes<-Attribute_and_C_Constructs_Data[,c(1:10)]
+ziji6_Attributes_rules<-apriori(data = ziji6_Attributes,parameter = list(support=0.7,confidence=0.7,target="rules",minlen=2))
+inspect(ziji6_Attributes_rules)
+plot(ziji6_Attributes_rules,method="graph")
+
+
+
+ziji7_C_construct<-Attribute_and_C_Constructs_Data[,c(11:15)]
+ziji7_C_construct_rules<-apriori(data = ziji7_C_construct,parameter = list(support=0.4,confidence=0.44,target="rules",minlen=2))
+inspect(ziji7_C_construct_rules)
+plot(ziji7_C_construct_rules,method="graph",main="C结构及D结构")
+
+
+par(mfrow=c(2,3))
+  plot(ziji1_charge_property_charge_element_charge_and_conservation_Rules,method = "graph",main="I.电荷及其性质C1")
+  plot(ziji2_energy_charge_diffrence_work_Rules,method = "graph",main="II.静电力做功C2")
+  plot(ziji3_Filed_property_strenthen_Rules,method="graph",main="III.电场及其性质C3")
+  plot(ziji4_capcity_rules,method="graph",main="IV.电容a-电容D1")
+  plot(ziji5_clomb_law_rules,method="graph",main="V.库仑定律a-库仑定律D2")
+  plot(ziji7_C_construct_rules,method="graph",main="VI.C构想及D构想")
+
+
+
+
+
+
+str(ziji2_energy_charge_diffrence_work_Rules)
+
+ziji1_charge_property_charge_element_charge_and_conservation_Rules<-DATAFRAME(ziji1_charge_property_charge_element_charge_and_conservation_Rules,separate=TRUE)
+ziji2_energy_charge_diffrence_work_Rules<-DATAFRAME(ziji2_energy_charge_diffrence_work_Rules,separate=TRUE)
+ziji3_Filed_property_strenthen_Rules<-DATAFRAME(ziji3_Filed_property_strenthen_Rules,separate=TRUE)
+ziji4_capcity_rules<-DATAFRAME(ziji4_capcity_rules,separate=TRUE)
+ziji5_clomb_law_rules<-DATAFRAME(ziji5_clomb_law_rules,separate=TRUE)
+#ziji6_Attributes_rules<-DATAFRAME(ziji6_Attributes_rules,separate=TRUE)
+ziji7_C_construct_rules<-DATAFRAME(ziji7_C_construct_rules,separate=TRUE)
+
+
+
+rules_total<-rbind(ziji1_charge_property_charge_element_charge_and_conservation_Rules,ziji2_energy_charge_diffrence_work_Rules)
+rules_total<-rbind(rules_total,ziji3_Filed_property_strenthen_Rules)
+rules_total<-rbind(rules_total,ziji4_capcity_rules)
+rules_total<-rbind(rules_total,ziji5_clomb_law_rules)
+#rules_total<-rbind(rules_total,ziji6_Attributes_rules)
+rules_total<-rbind(rules_total,ziji7_C_construct_rules)
+
+head(rules_total)
+write.csv(rules_total,file = "D:/ELETRICITY_DATA/FINAL DATA/rules.csv")
+
+```
+```{r include=TRUE,warning=TRUE,fig.align='center'}
+#laod package,read data,and draw the original figure
+library(igraph)
+rules_total <- read_excel("D:/ELETRICITY_DATA/rules_total.xlsx")
+relations<-data.frame(from=rules_total$Source,to=rules_total$Target)
+Construct_of_Student<-graph_from_data_frame(relations)
+plot(Construct_of_Student)
+
+#添加参数获取
+    average_path_constr_A<-average.path.length(Construct_of_Student)
+    diameter_ofs_A<-diameter(Construct_of_Student)
+    density_ofs_A<-edge_density(Construct_of_Student)
+    transitivity_count_A<-transitivity(Construct_of_Student)
+    liantong_edge_A<-edge.connectivity(Construct_of_Student)
+    liantong_nodes_A<-vertex.connectivity(Construct_of_Student)
+    charactor_of_a_students_A<-c(average_path_constr_A,diameter_ofs_A,density_ofs_A,transitivity_count_A,liantong_nodes_A,liantong_edge_A)
+    print(charactor_of_a_students_A)
+
+#Clean data of pattern
+head(Attribute_and_C_Constructs_Data)
+Attribute_and_C_Constructs_Data_1<-Attribute_and_C_Constructs_Data[,c(1,2,3,5,6,8,10,11,12,13,14)]
+head(Attribute_and_C_Constructs_Data)
+names(Attribute_and_C_Constructs_Data_1)<-c("电荷","元电荷","电荷守恒定律","电场强度","电场","电势","电势差","电荷及其性质","电场及其性质","静电力做功","库仑定律")
+head(Attribute_and_C_Constructs_Data_1)
+my_list<-list()
+#for loop calculate construct of student
+for (stID in 1:1162) {
+  x_position<-which(Attribute_and_C_Constructs_Data_1[stID,]==0)
+  y_names<-colnames(Attribute_and_C_Constructs_Data_1[x_position])
+  my_list[[stID]]<-y_names
+}
+my_list
+all_parameter_of_construct_of_student<-list()
+for (variable in 1:1162) {
+  if(length(my_list[[variable]])==0){
+    s<-Construct_of_Student
+    plot(s)
+    average_path_constr<-average.path.length(s)
+    diameter_ofs<-diameter(s)
+    density_ofs<-edge_density(s)
+    transitivity_count<-transitivity(s)
+    liantong_edge<-edge.connectivity(s)
+    liantong_nodes<-vertex.connectivity(s)
+    charactor_of_a_students<-c(average_path_constr,diameter_ofs,density_ofs,transitivity_count,liantong_nodes,liantong_edge)
+    print(charactor_of_a_students)
+    all_parameter_of_construct_of_student[[variable]]<-charactor_of_a_students
+  }  else if(length(my_list[[variable]])==11){
+    average_path_constr<-0
+    diameter_ofs<-0
+    density_ofs<-0
+    transitivity_count<-0
+    liantong_edge<-0
+    liantong_nodes<-0
+    charactor_of_a_students<-c(average_path_constr,diameter_ofs,density_ofs,transitivity_count,liantong_nodes,liantong_edge)
+    print(charactor_of_a_students)
+    all_parameter_of_construct_of_student[[variable]]<-charactor_of_a_students
+  }
+  else{
+    s<-Construct_of_Student-vertex(my_list[[variable]])
+    plot(s)
+    average_path_constr<-average.path.length(s)
+    diameter_ofs<-diameter(s)
+    density_ofs<-edge_density(s)
+    transitivity_count<-transitivity(s)
+    liantong_edge<-edge.connectivity(s)
+    liantong_nodes<-vertex.connectivity(s)
+    charactor_of_a_students<-c(average_path_constr,diameter_ofs,density_ofs,transitivity_count,liantong_nodes,liantong_edge)
+    print(charactor_of_a_students)
+    all_parameter_of_construct_of_student[[variable]]<-charactor_of_a_students
+  }
+}
+all_parameter_of_construct_of_student
+```
+#acquisition of Data
+```{r warning=TRUE}
+SSSSS<-unlist(all_parameter_of_construct_of_student)
+final_data_of_construct<-data.frame(matrix(SSSSS,nrow = 1162,byrow = T))
+names(final_data_of_construct)<-c("average_path_constr","diameter_ofs","density_ofs","transitivity_count","liantong_nodes","liantong_edge")
+View(final_data_of_construct)
+write.csv(final_data_of_construct,file = "D:/ELETRICITY_DATA/final_data_of_construct.csv")
+```
+#Correlation betwwen cores and constructions-热图
+```{r warning=TRUE,fig.align="center"}
+library(GGally)
+library(reshape2)
+library(scales)
+final_data_of_construct_anylisis <- read.csv("D:/ELETRICITY_DATA/final_data_of_construct.csv")
+head(final_data_of_construct_anylisis)
+#获取学生群体概念结构参数
+    path_constr<-average.path.length(Construct_of_Student)
+    diameter_of_C<-diameter(Construct_of_Student)
+    density_of_C<-edge_density(Construct_of_Student)
+    transitivity_C<-transitivity(Construct_of_Student)
+    liantong_E<-edge.connectivity(Construct_of_Student)
+    liantong_N<-vertex.connectivity(Construct_of_Student)
+#获取各参数与理想概念结构参数差
+    final_data_of_construct_anylisis$average_path_constr<-abs(final_data_of_construct_anylisis$average_path_constr-path_constr)
+    final_data_of_construct_anylisis$diameter_ofs<-abs(final_data_of_construct_anylisis$diameter_ofs-diameter_of_C)
+    final_data_of_construct_anylisis$density_ofs<-abs(final_data_of_construct_anylisis$density_ofs-density_of_C)
+    final_data_of_construct_anylisis$transitivity_count<-abs(final_data_of_construct_anylisis$transitivity_count-transitivity_C)
+    final_data_of_construct_anylisis$liantong_edge<-abs(final_data_of_construct_anylisis$liantong_edge-liantong_E)
+    final_data_of_construct_anylisis$liantong_nodes<-abs(final_data_of_construct_anylisis$liantong_nodes-liantong_N)
+    head(final_data_of_construct_anylisis)
+    
+    
+
+#连接成绩
+    final_data_of_construct_grade <- read_excel("D:/ELETRICITY_DATA/final_data_of_construct.xlsx")
+    final_data_of_construct_grade_any_cor<-cbind(final_data_of_construct_anylisis,final_data_of_construct_grade$grade)
+    names(final_data_of_construct_grade_any_cor)[8]="Grade"
+    View(final_data_of_construct_grade_any_cor)
+    write.csv(final_data_of_construct_grade_any_cor,file = "D:/ELETRICITY_DATA/final_data_of_construct_cor.csv")
+
+#transitivity聚类系数clr(G) 是对全局聚集性的度扯，所概括的是连通三元组闭合形成；三角形的相对频率。
+#average.path .length平均路径长度，
+#diameter最长路径；
+#vertex.connectivity节点连通度，一个更好的连通性定义源于以下的问题：如果从图中任意移除包括k 个节点（或边）的子集；
+#edge. connectivity边连通度
+#The density of a graph is the ratio of the number of edges and the number of possible edges.edge_density边密度，实际值与可能值比值
+#平均路径长度
+cor(final_data_of_construct_grade_any_cor$average_path_constr,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$average_path_constr,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+#最大长度
+cor(final_data_of_construct_grade_any_cor$diameter_ofs,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$diameter_ofs,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+#边密度
+cor(final_data_of_construct_grade_any_cor$density_ofs,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$density_ofs,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+#聚类系数
+cor(final_data_of_construct_grade_any_cor$transitivity_count,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$transitivity_count,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+#节点连通度
+cor(final_data_of_construct_grade_any_cor$liantong_nodes,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$liantong_nodes,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+
+#边连通度
+cor(final_data_of_construct_grade_any_cor$liantong_edge,final_data_of_construct_grade_any_cor$Grade,use = "na.or.complete")
+cor.test(final_data_of_construct_grade_any_cor$liantong_edge,final_data_of_construct_grade_any_cor$Grade,alternative = "greater",method = "pearson")
+
+```
+#Find_Cluster
+```{r include=TRUE,echo=TRUE}
+final_cluster_data_intial <- read_excel("D:/ELETRICITY_DATA/final_data_of_construct_cluster.xlsx")
+find_cluster<-final_cluster_data_intial[,1:7]
+View(find_cluster)
+
+find_cluster_construct_attribute<-find_cluster[,c(2,5,6)]
+# names(find_cluster_construct_attribute)=c("平均路径长度","最长路径","结构密度系数","聚类系数","节点连通度","边连通度")
+names(find_cluster_construct_attribute)=c("平均路径长度","聚类系数","节点连通度")
+View(find_cluster_construct_attribute)
+
+theclusFitmens<-FitKMeans(find_cluster_construct_attribute,max.clusters = 15,nstart = 25,seed = 278613)
+PlotHartigan(theclusFitmens)
+theclusFitmens
+
+pairs(find_cluster_construct_attribute)
+
+gapdata<-as.data.frame(lapply(find_cluster_construct_attribute,as.numeric))
+theclusGap<-clusGap(gapdata,FUNcluster = pam,K.max = 20)
+
+wss<-numeric(15)
+for (k in 1:15) {
+  wss[k]<-sum(kmeans(find_cluster_construct_attribute,centers = k,nstart = 25)$withinss)
+}
+clusters_num<-data.frame(1:15,wss)
+View(clusters_num)
+ggplot(data = clusters_num,aes(x=clusters_num$X1.15,y=clusters_num$wss))+geom_line()+xlab("聚类个数")+ylab("wss值")
+
+ggplot(data = clusters_num,aes(x=clusters_num$X1.15,y=clusters_num$wss))+geom_point(size=2)+xlab("k")+ylab("wss")+geom_line(size=0.5)+theme_bw()+scale_x_continuous(breaks = seq(1,15,by=1))+theme(panel.border = element_blank())
+
+box_plot_data<-gather(data = find_cluster_construct_attribute,"系数类别","系数值")
+
+ggplot(data = box_plot_data,aes(x=系数类别,y=系数值))+geom_boxplot()+xlab("")+ylab("")+geom_jitter(aes(color=系数类别),alpha=0.2)+scale_colour_hue("学生概念结构系数类别")+theme_bw()+theme(panel.border = element_blank())
+
+students_construct_cluster<-kmeans(find_cluster_construct_attribute,4,nstart = 25)
+students_construct_cluster
+find_cluster_construct_attribute$clusters<-factor(students_construct_cluster$cluster)
+View(find_cluster_construct_attribute)
+
+centers<-as.data.frame(students_construct_cluster$centers)
+p1<-ggplot(data = find_cluster_construct_attribute,aes(x=聚类系数,y=平均路径长度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=聚类系数,y=平均路径长度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+
+p2<-ggplot(data = find_cluster_construct_attribute,aes(x=聚类系数,y=结构密度系数,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=聚类系数,y=结构密度系数,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p3<-ggplot(data = find_cluster_construct_attribute,aes(x=聚类系数,y=节点连通度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=聚类系数,y=节点连通度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p4<-ggplot(data = find_cluster_construct_attribute,aes(x=结构密度系数,y=节点连通度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=结构密度系数,y=节点连通度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p5<-ggplot(data = find_cluster_construct_attribute,aes(x=结构密度系数,y=平均路径长度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=结构密度系数,y=平均路径长度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p6<-ggplot(data = find_cluster_construct_attribute,aes(x=平均路径长度,y=节点连通度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=平均路径长度,y=节点连通度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+All_cluster_Picture<-list(p1,p2,p3,p4,p5,p6)
+all_cluster_Fig<-multiplot(plotlist = All_cluster_Picture,cols = 2)
+```
+# 决策树构建
+```{r}
+fit_tree<-rpart(clusters~平均路径长度+结构密度系数+聚类系数+节点连通度,data = find_cluster_construct_attribute,control=rpart.control(minsplit = 1),parms=list(split='information'))
+summary(fit_tree)
+rpart.plot(fit_tree,type = 4,extra=1)
+```
+
+
+
+
