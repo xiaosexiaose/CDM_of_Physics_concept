@@ -24,6 +24,7 @@ library(gridExtra)
 library(tidyr)
 library(rpart)
 library(rpart.plot)
+library(useful)
 # Data_read_QMatrix and Sdudent Data
 ```
 ```{r include=TRUE,warning=FALSE}
@@ -349,13 +350,14 @@ head(final_data_of_construct_anylisis)
     final_data_of_construct_anylisis$liantong_edge<-abs(final_data_of_construct_anylisis$liantong_edge-liantong_E)
     final_data_of_construct_anylisis$liantong_nodes<-abs(final_data_of_construct_anylisis$liantong_nodes-liantong_N)
     head(final_data_of_construct_anylisis)
-    
+    write.csv(final_data_of_construct_anylisis,file = "D:/ELETRICITY_DATA/final_data_of_construct_xiangdui.csv")
     
 
 #连接成绩
     final_data_of_construct_grade <- read_excel("D:/ELETRICITY_DATA/final_data_of_construct.xlsx")
-    final_data_of_construct_grade_any_cor<-cbind(final_data_of_construct_anylisis,final_data_of_construct_grade$grade)
-    names(final_data_of_construct_grade_any_cor)[8]="Grade"
+    final_data_of_construct_xiangdui <- read_csv("D:/ELETRICITY_DATA/final_data_of_construct_xiangdui.csv")
+    final_data_of_construct_grade_any_cor<-cbind(final_data_of_construct_xiangdui,final_data_of_construct_grade$grade)
+    names(final_data_of_construct_grade_any_cor)[9]="Grade"
     View(final_data_of_construct_grade_any_cor)
     write.csv(final_data_of_construct_grade_any_cor,file = "D:/ELETRICITY_DATA/final_data_of_construct_cor.csv")
 
@@ -391,21 +393,20 @@ cor.test(final_data_of_construct_grade_any_cor$liantong_edge,final_data_of_const
 final_cluster_data_intial <- read_excel("D:/ELETRICITY_DATA/final_data_of_construct_cluster.xlsx")
 find_cluster<-final_cluster_data_intial[,1:7]
 View(find_cluster)
-
-find_cluster_construct_attribute<-find_cluster[,c(2,5,6)]
+#大致选择变量
+pairs(find_cluster)
+find_cluster_construct_attribute<-find_cluster[,c(2,4,5,6)]
 # names(find_cluster_construct_attribute)=c("平均路径长度","最长路径","结构密度系数","聚类系数","节点连通度","边连通度")
-names(find_cluster_construct_attribute)=c("平均路径长度","聚类系数","节点连通度")
+names(find_cluster_construct_attribute)=c("平均路径长度","结构密度系数","聚类系数","节点连通度")
 View(find_cluster_construct_attribute)
 
-theclusFitmens<-FitKMeans(find_cluster_construct_attribute,max.clusters = 15,nstart = 25,seed = 278613)
-PlotHartigan(theclusFitmens)
-theclusFitmens
 
-pairs(find_cluster_construct_attribute)
+#描述结构
+box_plot_data<-gather(data = find_cluster_construct_attribute,"系数类别","系数值")
 
-gapdata<-as.data.frame(lapply(find_cluster_construct_attribute,as.numeric))
-theclusGap<-clusGap(gapdata,FUNcluster = pam,K.max = 20)
-
+ggplot(data = box_plot_data,aes(x=系数类别,y=系数值))+geom_boxplot()+xlab("")+ylab("")+geom_jitter(aes(color=系数类别),alpha=0.2)+scale_colour_hue("学生概念结构系数类别")+theme_bw()+theme(panel.border = element_blank())
+#确定最佳聚类数目
+  #wss方法
 wss<-numeric(15)
 for (k in 1:15) {
   wss[k]<-sum(kmeans(find_cluster_construct_attribute,centers = k,nstart = 25)$withinss)
@@ -415,17 +416,23 @@ View(clusters_num)
 ggplot(data = clusters_num,aes(x=clusters_num$X1.15,y=clusters_num$wss))+geom_line()+xlab("聚类个数")+ylab("wss值")
 
 ggplot(data = clusters_num,aes(x=clusters_num$X1.15,y=clusters_num$wss))+geom_point(size=2)+xlab("k")+ylab("wss")+geom_line(size=0.5)+theme_bw()+scale_x_continuous(breaks = seq(1,15,by=1))+theme(panel.border = element_blank())
+  #fitmens方法
+theclusFitmens<-FitKMeans(find_cluster_construct_attribute,max.clusters = 40,nstart = 25,seed = 278613)
+theclusFitmens
+PlotHartigan(theclusFitmens)+scale_x_continuous(breaks = seq(1,40,1))
+  #gap方法
+# gapdata<-as.data.frame(lapply(find_cluster_construct_attribute,as.numeric))
+# theclusGap<-clusGap(gapdata,FUNcluster = pam,K.max = 40)
+# ggplot(theclusGap,aes(x=1:nrow(theclusGap)))+geom_line(aes(y=gap))+geom_point(aes(y=gap))+geom_errorbar(aes(ymin=gap-SE.sim,ymax=gap+SE.sim))+labs(x="聚类数目",y="Gap")+theme_bw()+theme(panel.border = element_blank())+scale_x_continuous(breaks = seq(1,30,1))
 
-box_plot_data<-gather(data = find_cluster_construct_attribute,"系数类别","系数值")
-
-ggplot(data = box_plot_data,aes(x=系数类别,y=系数值))+geom_boxplot()+xlab("")+ylab("")+geom_jitter(aes(color=系数类别),alpha=0.2)+scale_colour_hue("学生概念结构系数类别")+theme_bw()+theme(panel.border = element_blank())
-
+#描述聚类
 students_construct_cluster<-kmeans(find_cluster_construct_attribute,4,nstart = 25)
 students_construct_cluster
 find_cluster_construct_attribute$clusters<-factor(students_construct_cluster$cluster)
 View(find_cluster_construct_attribute)
 
 centers<-as.data.frame(students_construct_cluster$centers)
+
 p1<-ggplot(data = find_cluster_construct_attribute,aes(x=聚类系数,y=平均路径长度,color=clusters))+geom_point()+theme(legend.position = "right")+geom_point(data = centers,aes(x=聚类系数,y=平均路径长度,color=as.factor(c(1,2,3,4))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
 
 
@@ -448,6 +455,104 @@ fit_tree<-rpart(clusters~平均路径长度+结构密度系数+聚类系数+节�
 summary(fit_tree)
 rpart.plot(fit_tree,type = 4,extra=1)
 ```
+# 利用各参数与理想概念结构间的差异程度进行聚类查看聚类效果
+```{r include=TRUE,echo=TRUE}
+find_cluster_data_xiangdui <- read_excel("D:/ELETRICITY_DATA/final_data_of_construct_xiangdui.xlsx")
+# View(find_cluster_data_xiangdui)
+
+names(find_cluster_data_xiangdui)<-c("平均路径长度","最长路径","结构密度系数","聚类系数","节点连通度","边连通度")
+# View(find_cluster_data_xiangdui)
+
+find_cluster_data_xiangdui_final<-as.data.frame(find_cluster_data_xiangdui,numeric)
+
+pairs(find_cluster_data_xiangdui_final[complete.cases(find_cluster_data_xiangdui_final),])
+#确定选择列
+find_cluster_data_xiangdui_final<-find_cluster_data_xiangdui_final[,c(1,3,4,5)]
+View(find_cluster_data_xiangdui_final)
+#描述结构
+box_plot_data_xiangdui<-gather(data = find_cluster_data_xiangdui_final,"系数类别","系数值")
+
+ggplot(data = box_plot_data_xiangdui,aes(x=系数类别,y=系数值))+geom_boxplot()+xlab("")+ylab("")+geom_jitter(aes(color=系数类别),alpha=0.2)+scale_colour_hue("学生概念结构系数类别")+theme_bw()+theme(panel.border = element_blank())
+#聚类参数选择方法1
+wss_xiangdui<-numeric(15)
+for (k in 1:15) {
+  wss_xiangdui[k]<-sum(kmeans(find_cluster_data_xiangdui_final,centers = k,nstart = 25)$withinss)
+}
+clusters_num_xiangdui<-data.frame(1:15,wss_xiangdui)
+View(clusters_num_xiangdui)
+
+ggplot(data = clusters_num_xiangdui,aes(x=clusters_num$X1.15,y=clusters_num_xiangdui$wss_xiangdui))+geom_point(size=2)+xlab("k")+ylab("wss")+geom_line(size=0.5)+theme_bw()+scale_x_continuous(breaks = seq(1,15,by=1))+theme(panel.border = element_blank())
+#聚类参数选择方法2
+find_cluster_best_xiangdui<-FitKMeans(find_cluster_data_xiangdui_final,max.clusters = 40,nstart = 25,seed = 2018)
+
+PlotHartigan(find_cluster_best_xiangdui)+xlab("")+ylab("")+theme_bw()+theme(panel.border = element_blank())
+
+#聚类参数选择方法3
+theGap_xiangdui<-clusGap(find_cluster_best_xiangdui,FUNcluster = pam,K.max = 30)
+Gapdata_xiangdui<-as.data.frame(theGap_xiangdui$Tab)
+Gapdata_xiangdui
+
+ggplot(Gapdata_xiangdui,aes(x=1:nrow(Gapdata_xiangdui)))+geom_line(aes(y=gap))+geom_point(aes(y=gap))+geom_errorbar(aes(ymin=gap-SE.sim,ymax=gap+SE.sim))+labs(x="聚类数目",y="Gap")+theme_bw()+theme(panel.border = element_blank())+scale_x_continuous(breaks = seq(1,30,1))
+
+#利用最佳聚类系数进行聚类
+
+students_construct_cluster_xiangdui<-kmeans(find_cluster_data_xiangdui_final,3,nstart = 25)
+students_construct_cluster_xiangdui
+
+find_cluster_data_xiangdui_final$cluster<-factor(students_construct_cluster_xiangdui$cluster)
+View(find_cluster_data_xiangdui_final)
+centers_xiangdui<-as.data.frame(students_construct_cluster_xiangdui$centers)
+View(centers_xiangdui)
+
+
+p1_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=聚类系数,y=平均路径长度,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=聚类系数,y=平均路径长度,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p2_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=聚类系数,y=结构密度系数,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=聚类系数,y=结构密度系数,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p3_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=聚类系数,y=节点连通度,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=聚类系数,y=节点连通度,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p4_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=结构密度系数,y=节点连通度,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=结构密度系数,y=节点连通度,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p5_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=结构密度系数,y=平均路径长度,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=结构密度系数,y=平均路径长度,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+p6_xiangdui<-ggplot(data = find_cluster_data_xiangdui_final,aes(x=平均路径长度,y=节点连通度,color=cluster))+geom_point()+theme(legend.position = "right")+geom_point(data = centers_xiangdui,aes(x=平均路径长度,y=节点连通度,color=as.factor(c(1,2,3))),size=10,alpha=0.3,show.legend=FALSE)+scale_color_hue("概念结构分类")
+
+All_cluster_Picture_xiangdui<-list(p1_xiangdui,p2_xiangdui,p3_xiangdui,p4_xiangdui,p5_xiangdui,p6_xiangdui)
+all_cluster_Fig<-multiplot(plotlist = All_cluster_Picture_xiangdui,cols = 2)
+
+#构建决策树
+fit_tree<-rpart(cluster~平均路径长度+结构密度系数+聚类系数+节点连通度,data = find_cluster_data_xiangdui_final,method="class",control=rpart.control(minsplit = 1),parms=list(split='information'))
+summary(fit_tree)
+rpart.plot(fit_tree,type = 5,extra=1)
+```
+#节点连通度和平均路径长度特征
+```{r}
+find_cluster_data_liantong_changdu<-find_cluster_data_xiangdui_final[,c(1,3,4)]
+
+wss_liantong_jiedian<-numeric(15)
+for (k in 1:15) {
+  wss_liantong_jiedian[k]<-sum(kmeans(find_cluster_data_liantong_changdu,centers = k,nstart = 25)$withinss)
+}
+clusters_num_liantongjiedian<-data.frame(1:15,wss_liantong_jiedian)
+View(clusters_num_liantongjiedian)
+
+ggplot(data = clusters_num_liantongjiedian,aes(x=clusters_num$X1.15,y=clusters_num_liantongjiedian$wss_liantong_jiedian))+geom_point(size=2)+xlab("k")+ylab("wss")+geom_line(size=0.5)+theme_bw()+scale_x_continuous(breaks = seq(1,15,by=1))+theme(panel.border = element_blank())
+
+find_cluster_best_jiedianliantong<-FitKMeans(find_cluster_data_liantong_changdu,max.clusters = 40,nstart = 25,seed = 2018)
+
+PlotHartigan(find_cluster_best_jiedianliantong)+xlab("")+ylab("")+theme_bw()+theme(panel.border = element_blank())
+View(find_cluster_data_liantong_changdu)
+
+find_cluster_data_liantong_changdu<-as.data.frame(lapply(find_cluster_data_liantong_changdu,numeric))
+
+# theGap_liantongjiedian<-clusGap(find_cluster_data_liantong_changdu,FUNcluster = pam,K.max = 30)
+# Gapdata_liantongjiedian<-as.data.frame(theGap_liantongjiedian$Tab)
+# Gapdata_liantongjiedian
+
+ggplot(Gapdata_liantongjiedian,aes(x=1:nrow(Gapdata_liantongjiedian)))+geom_line(aes(y=gap))+geom_point(aes(y=gap))+geom_errorbar(aes(ymin=gap-SE.sim,ymax=gap+SE.sim))+labs(x="聚类数目",y="Gap")+theme_bw()+theme(panel.border = element_blank())+scale_x_continuous(breaks = seq(1,30,1))
+```
+
+
 
 
 
