@@ -280,11 +280,14 @@ for (stID in 1:1162) {
   my_list[[stID]]<-y_names
 }
 my_list
+
+my_figurelist<-list()
 all_parameter_of_construct_of_student<-list()
 for (variable in 1:1162) {
   if(length(my_list[[variable]])==0){
     s<-Construct_of_Student
     plot(s)
+    my_figurelist[[variable]]=s
     average_path_constr<-average.path.length(s)
     diameter_ofs<-diameter(s)
     density_ofs<-edge_density(s)
@@ -295,6 +298,8 @@ for (variable in 1:1162) {
     print(charactor_of_a_students)
     all_parameter_of_construct_of_student[[variable]]<-charactor_of_a_students
   }  else if(length(my_list[[variable]])==11){
+    s<-make_empty_graph()
+    my_figurelist[[variable]]=s
     average_path_constr<-0
     diameter_ofs<-0
     density_ofs<-0
@@ -307,6 +312,7 @@ for (variable in 1:1162) {
   }
   else{
     s<-Construct_of_Student-vertex(my_list[[variable]])
+    my_figurelist[[variable]]=s
     plot(s)
     average_path_constr<-average.path.length(s)
     diameter_ofs<-diameter(s)
@@ -558,12 +564,25 @@ View(final_data_of_construct_anylisis)
 
 costruct_of_1<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==1 & final_data_of_construct_anylisis$average_path_constr<0.92),]
 View(costruct_of_1)
+construc_1<-costruct_of_1$X
+for (costruc1 in construc_1) {
+  plot(my_figurelist[[costruc1]])
+}
+
 
 costruct_of_2<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==1 & final_data_of_construct_anylisis$average_path_constr>=0.92),]
 View(costruct_of_2)
+costruct_2<-costruct_of_2$X
+for (costruc2 in costruct_2) {
+  plot(my_figurelist[[costruc2]])
+}
 
 costruct_of_3<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==0),]
 View(costruct_of_3)
+costruct_3<-costruct_of_3$X
+for (costruc3 in costruct_3) {
+  plot(my_figurelist[[costruc3]])
+}
 
 
 ```
