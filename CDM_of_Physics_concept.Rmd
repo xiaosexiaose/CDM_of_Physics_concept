@@ -25,6 +25,7 @@ library(tidyr)
 library(rpart)
 library(rpart.plot)
 library(useful)
+library(tree)
 # Data_read_QMatrix and Sdudent Data
 ```
 ```{r include=TRUE,warning=FALSE}
@@ -551,6 +552,22 @@ find_cluster_data_liantong_changdu<-as.data.frame(lapply(find_cluster_data_liant
 
 ggplot(Gapdata_liantongjiedian,aes(x=1:nrow(Gapdata_liantongjiedian)))+geom_line(aes(y=gap))+geom_point(aes(y=gap))+geom_errorbar(aes(ymin=gap-SE.sim,ymax=gap+SE.sim))+labs(x="聚类数目",y="Gap")+theme_bw()+theme(panel.border = element_blank())+scale_x_continuous(breaks = seq(1,30,1))
 ```
+#筛选恰当分类的学生
+```{r}
+View(final_data_of_construct_anylisis)
+
+costruct_of_1<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==1 & final_data_of_construct_anylisis$average_path_constr<0.92),]
+View(costruct_of_1)
+
+costruct_of_2<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==1 & final_data_of_construct_anylisis$average_path_constr>=0.92),]
+View(costruct_of_2)
+
+costruct_of_3<-final_data_of_construct_anylisis[(final_data_of_construct_anylisis$liantong_nodes==0),]
+View(costruct_of_3)
+
+
+```
+
 
 
 
