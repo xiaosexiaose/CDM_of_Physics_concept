@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+# load packages
+```{r}
+require(readr)
+require(readxl)
+require(lavaan)
+library(DiagrammeR)
+library(dplyr)
+library(plyr)
+library(tidyr)
+library(ggplot2)
+library(semPlot)
+```
+
+# loading data
+```{r include=TRUE,echo=TRUE}
+data_of_xiaojuan_yang <- read_excel("D:/Data_analisis/xiaojuan_yang/data_of_xiaojuan_yang.xls",sheet = "total")
+A_1<-data_of_xiaojuan_yang$A_1
+
+A_2<-(data_of_xiaojuan_yang$A_2_1+data_of_xiaojuan_yang$A_2_2+data_of_xiaojuan_yang$A_2_3+data_of_xiaojuan_yang$A_2_4+data_of_xiaojuan_yang$A_2_5+data_of_xiaojuan_yang$A_2_6)/6
+
+A_3<-(data_of_xiaojuan_yang$A_3_1+data_of_xiaojuan_yang$A_3_2+data_of_xiaojuan_yang$A_3_3+data_of_xiaojuan_yang$A_3_4+data_of_xiaojuan_yang$A_3_5+data_of_xiaojuan_yang$A_3_6+data_of_xiaojuan_yang$A_3_7)/7
+
+B_1<-(data_of_xiaojuan_yang$B_1_1+data_of_xiaojuan_yang$B_1_2+data_of_xiaojuan_yang$B_1_3+data_of_xiaojuan_yang$B_1_4+data_of_xiaojuan_yang$B_1_5+data_of_xiaojuan_yang$B_1_6+data_of_xiaojuan_yang$B_1_7)/7
+
+B_2<-(data_of_xiaojuan_yang$B_2_1+data_of_xiaojuan_yang$B_2_2)/2
+
+B_3<-(data_of_xiaojuan_yang$B_3_1+data_of_xiaojuan_yang$B_3_2+data_of_xiaojuan_yang$B_3_3+data_of_xiaojuan_yang$B_3_4+data_of_xiaojuan_yang$B_3_5+data_of_xiaojuan_yang$B_3_6+data_of_xiaojuan_yang$B_3_7)/7
+
+B_4<-(data_of_xiaojuan_yang$B_4_1+data_of_xiaojuan_yang$B_4_2+data_of_xiaojuan_yang$B_4_3)/3
+
+B_5<-(data_of_xiaojuan_yang$B_5_1+data_of_xiaojuan_yang$B_5_2+data_of_xiaojuan_yang$B_5_3)/3
+
+C_Atrri<-(data_of_xiaojuan_yang$C_1+data_of_xiaojuan_yang$C_2)/2
+
+D_Atrri<-(data_of_xiaojuan_yang$D_1+data_of_xiaojuan_yang$D_2+data_of_xiaojuan_yang$D_3+data_of_xiaojuan_yang$D_4+data_of_xiaojuan_yang$D_5+data_of_xiaojuan_yang$D_6)/6
+
+E_Atrri<-(data_of_xiaojuan_yang$E_1+data_of_xiaojuan_yang$E_2)/2
+
+F_Atrri<-(data_of_xiaojuan_yang$F_1+data_of_xiaojuan_yang$F_2)/2
+
+G_Atrri<-(data_of_xiaojuan_yang$F_1+data_of_xiaojuan_yang$F_2)/2
+
+yang_data<-data.frame(A_1,A_2,A_3,B_1,B_2,B_3,B_4,B_5,C_Atrri,D_Atrri,E_Atrri,F_Atrri,G_Atrri)
+
+yang_data<-yang_data[-4,]
+View(yang_data)
+
+yang_data_box<-gather(yang_data,attri,val)
+View(yang_data_box)
+
+ggplot(data = yang_data_box,aes(x=attri,y=val))+geom_boxplot()+geom_jitter(aes(color=attri),alpha=0.2)+theme_bw()+scale_color_hue("极端值检查")
+
+yang_data_final<-yang_data %>%
+  filter(A_2<=4.5 & A_2>=2.7) %>%
+  filter(A_1<=5 & A_1>=2) %>%
+  filter(A_3<=4.2 & A_3>=2.7) %>%
+  filter(B_1<=4.5 & B_1>=3) %>%
+  filter(B_3<=4.5 & B_3>=2.5) %>%
+  filter(B_2<=4.5 & B_2>=3) %>%
+  filter(B_4<=4.5 & B_4>=1.7) %>%
+  filter(B_5<=4.5 & B_5>=1.5) %>%
+  filter(C_Atrri<=3.5 & C_Atrri>=2) %>%
+  filter(D_Atrri<=4.3 & D_Atrri>=2.3) %>%
+  filter(E_Atrri<=5 & E_Atrri>=3.5) %>%
+  filter(F_Atrri<=4 & F_Atrri>=2.5) %>%
+  filter(G_Atrri<=4 & G_Atrri>=2.5)
+
+yang_data_final_1<-yang_data_final[,-c(2,3,5,6,7,8,12,13)]
+View(yang_data_final_1)
+cor_data<-cor(yang_data_final_1)
+View(cor_data)
+
+yang_data_final_box<-gather(yang_data_final,attri,val)
+ggplot(data = yang_data_final_box,aes(x=attri,y=val))+geom_boxplot()+geom_jitter(aes(color=attri),alpha=0.2)+theme_bw()+scale_color_hue("极端值检查")
+
+View(yang_data_final)
+```
+
+# model set
+```{r include=TRUE,echo=TRUE}
+modeltext<-'
+B_1~A_1
+C_Atrri~A_1+B_1
+D_Atrri~C_Atrri
+E_Atrri~B_1
+'
+fitdata<-sem(modeltext,yang_data_final_1)
+semPaths(fitdata,what = "col",whatLabels = "par",layout = "tree2")
+```
+
+
