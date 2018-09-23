@@ -83,21 +83,29 @@ principal(data_of_xiaojuan_yang[,c(47:48)],nfactors = 1)
 A_1<-data_of_xiaojuan_yang$A_1
 A_2<-data_of_xiaojuan_yang$A_2_2
 A_3<-(data_of_xiaojuan_yang$A_3_1+data_of_xiaojuan_yang$A_3_2)/2
-B_1<-data_of_xiaojuan_yang$B_1_6
-B_2<-data_of_xiaojuan_yang$B_2_1
-B_3<-data_of_xiaojuan_yang$B_3_2
-B_4<-data_of_xiaojuan_yang$B_4_2
+B_1<-(data_of_xiaojuan_yang$B_1_6+data_of_xiaojuan_yang$B_1_5)/2
+B_2<-(data_of_xiaojuan_yang$B_2_1+data_of_xiaojuan_yang$B_2_2)/2
+B_3<-(data_of_xiaojuan_yang$B_3_1+data_of_xiaojuan_yang$B_3_2+data_of_xiaojuan_yang$B_3_3+data_of_xiaojuan_yang$B_3_6+data_of_xiaojuan_yang$B_3_7)/5
+B_4<-(data_of_xiaojuan_yang$B_4_2+data_of_xiaojuan_yang$B_4_1+data_of_xiaojuan_yang$B_4_3)/3
 B_5<-data_of_xiaojuan_yang$B_5_2
-C<-data_of_xiaojuan_yang$C_1
-D<-data_of_xiaojuan_yang$D_4
-E<-data_of_xiaojuan_yang$E_1
-F_1<-data_of_xiaojuan_yang$F_1
+C<-(data_of_xiaojuan_yang$C_1+data_of_xiaojuan_yang$C_2)/2
+D<-(data_of_xiaojuan_yang$D_4+data_of_xiaojuan_yang$D_1+data_of_xiaojuan_yang$D_5)/3
+E<-(data_of_xiaojuan_yang$E_1+data_of_xiaojuan_yang$E_2)/2
+F_1<-(data_of_xiaojuan_yang$F_1+data_of_xiaojuan_yang$F_2)/2
 G<-data_of_xiaojuan_yang$G_1
 
 #数据框
 
 yang_data_final<-data.frame(A_1,A_2,A_3,B_1,B_2,B_3,B_4,B_5,C,D,E,F_1,G)
 head(yang_data_final)
+
+#清洗数据
+
+yang_data_final_boxplot<-gather(yang_data_final,class_of_data,value_of_data)
+
+ggplot(data = yang_data_final_boxplot,aes(x=class_of_data,y=value_of_data))+geom_boxplot()+geom_jitter(aes(color=class_of_data),alpha=0.2)+theme_bw()
+
+
 ```
 
 # model set
@@ -114,10 +122,12 @@ F_1~D+E
 G~C+D+F_1
 '
 fitdata<-sem(modeltext,yang_data_final)
+
 semPaths(fitdata,what = "col",whatLabels = "par",layout = "tree2")
 semPaths(fitdata,what = "stand",layout = "tree2")
 semPaths(fitdata,what = "col",whatLabels = "stand",layout = "tree2")
 
+summary(fitdata)
 ```
 
 
