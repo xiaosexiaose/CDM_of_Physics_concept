@@ -16,6 +16,7 @@ library(tidyr)
 library(ggplot2)
 library(semPlot)
 library(psych)
+library(sem)
 ```
 
 # loading data
@@ -85,7 +86,7 @@ A_2<-data_of_xiaojuan_yang$A_2_2
 A_3<-(data_of_xiaojuan_yang$A_3_1+data_of_xiaojuan_yang$A_3_2)/2
 B_1<-(data_of_xiaojuan_yang$B_1_6+data_of_xiaojuan_yang$B_1_5)/2
 B_2<-(data_of_xiaojuan_yang$B_2_1+data_of_xiaojuan_yang$B_2_2)/2
-B_3<-(data_of_xiaojuan_yang$B_3_1+data_of_xiaojuan_yang$B_3_2+data_of_xiaojuan_yang$B_3_3+data_of_xiaojuan_yang$B_3_6+data_of_xiaojuan_yang$B_3_7)/5
+B_3<-(data_of_xiaojuan_yang$B_3_4+data_of_xiaojuan_yang$B_3_5)/2
 B_4<-(data_of_xiaojuan_yang$B_4_2+data_of_xiaojuan_yang$B_4_1+data_of_xiaojuan_yang$B_4_3)/3
 B_5<-data_of_xiaojuan_yang$B_5_2
 C<-(data_of_xiaojuan_yang$C_1+data_of_xiaojuan_yang$C_2)/2
@@ -99,17 +100,21 @@ G<-data_of_xiaojuan_yang$G_1
 yang_data_final<-data.frame(A_1,A_2,A_3,B_1,B_2,B_3,B_4,B_5,C,D,E,F_1,G)
 head(yang_data_final)
 
+write.csv(yang_data_final,file = "D:/Data_analisis/xiaojuan_yang/data_of_xiaojuan_yang_final.csv")
 #清洗数据
 
 yang_data_final_boxplot<-gather(yang_data_final,class_of_data,value_of_data)
 
 ggplot(data = yang_data_final_boxplot,aes(x=class_of_data,y=value_of_data))+geom_boxplot()+geom_jitter(aes(color=class_of_data),alpha=0.2)+theme_bw()
 
+  
+View(newdata)
 
 ```
 
 # model set
 ```{r include=TRUE,echo=TRUE}
+# model 1
 modeltext<-'
 A=~A_1+A_2+A_3
 B=~B_1+B_2+B_3+B_4+B_5
@@ -121,13 +126,103 @@ E~B
 F_1~D+E
 G~C+D+F_1
 '
-fitdata<-sem(modeltext,yang_data_final)
+fitdata<-lavaan::sem(modeltext,newdata)
 
 semPaths(fitdata,what = "col",whatLabels = "par",layout = "tree2")
 semPaths(fitdata,what = "stand",layout = "tree2")
 semPaths(fitdata,what = "col",whatLabels = "stand",layout = "tree2")
 
+
+
 summary(fitdata)
+# model 2
+modeltext2<-'
+A=~A_1+A_2+A_3
+B=~B_1+B_2+B_3+B_4+B_5
+
+B~A
+C~A+B
+D~C
+E~B
+F_1~D+E
+G~C+F_1
+'
+fitdata2<-sem(modeltext2,yang_data_final)
+semPaths(fitdata2,what = "col",whatLabels = "stand",layout = "tree2")
+summary(fitdata2)
+# model 3
+modeltext3<-'
+A=~A_1+A_2+A_3
+B=~B_1+B_2+B_3+B_4+B_5
+
+B~A
+C~A+B
+D~C+B
+E~B
+F_1~D+E
+G~C+F_1
+'
+fitdata3<-sem(modeltext3,yang_data_final)
+semPaths(fitdata3,what = "col",whatLabels = "stand",layout = "tree2")
+summary(fitdata3)
+
+#model 4
+# model 1
+modeltext4<-'
+A=~A_1+A_2+A_3
+B=~B_1+B_2+B_3+B_4+B_5
+
+B~A
+C~A+B
+D~C
+E~B
+F_1~D+E
+G~C+D+F_1
+'
+fitdata4<-sem(modeltext4,yang_data_final)
+
+semPaths(fitdata4,what = "col",whatLabels = "stand",layout = "tree2")
+
+summary(fitdata4)
+```
+# use SEM package to fit SEM
+```{r}
+sem_matrix_of_yang_data<-cor(yang_data_final)
+# View(sem_matrix_of_yang_data)
+model_of_sem<-specifyModel(text = '
+A->A_1,gamA_1
+A->A_2,gamA_2
+A->A_3,gamA_3
+B->B_1,gamB_1
+B->B_2,gamB_2
+B->B_3,gamB_3
+B->B_4,gamB_4
+B->B_5,gamB_5
+A->B,beta1
+A->C,beta2
+B->C,beta3
+C->D,beta4
+B->D,beta5
+B->E,beta6
+E->F_1,beta7
+D->F_1,beta8
+C->G,beta9
+D->G,beta10
+F_1->G,beta11
+G<->G,theat1
+A<->A,theat2
+B<->B,theat3
+C<->C,theat4
+D<->D,theat5
+E<->E,theat6
+F_1<->F_1,theat7
+')
+View(yang_data_final)
+sem_sempackage<-sem(model = model_of_sem,S=sem_matrix_of_yang_data,obs.variables = c("A_1","A_2","A_3","B_1","B_2","B_3","B_4","B_5","C","D","E","F_1","G"),N=453)
+
+pathDiagram(sem_sempackage,style = "ram")
+
+
 ```
 
 
